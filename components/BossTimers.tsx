@@ -1,6 +1,6 @@
 
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { bosses, type Boss } from '@/lib/bosses';
 import { BossCard } from '@/components/BossCard';
@@ -15,17 +15,53 @@ import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Star } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 export function BossTimers() {
   const [editingBoss, setEditingBoss] = useState<Boss | null>(null);
   const { toast } = useToast();
   const firestore = useFirestore();
+  const [favoriteFloors, setFavoriteFloors] = useState<number[]>([]);
+
+  useEffect(() => {
+    try {
+      const savedFavorites = localStorage.getItem('favoriteFloors');
+      if (savedFavorites) {
+        setFavoriteFloors(JSON.parse(savedFavorites));
+      }
+    } catch (error) {
+      console.error('Could not load favorites from local storage', error);
+    }
+  }, []);
+
+  const toggleFavorite = (floor: number) => {
+    let updatedFavorites: number[];
+    if (favoriteFloors.includes(floor)) {
+      updatedFavorites = favoriteFloors.filter((f) => f !== floor);
+    } else {
+      updatedFavorites = [...favoriteFloors, floor];
+    }
+    setFavoriteFloors(updatedFavorites);
+    try {
+      localStorage.setItem('favoriteFloors', JSON.stringify(updatedFavorites));
+    } catch (error) {
+      console.error('Could not save favorites to local storage', error);
+    }
+  };
 
   const interServerBosses = bosses.filter((b) => b.type === 'inter');
   const normalBosses = bosses.filter((b) => b.type === 'normal');
 
-  const floors = Array.from(new Set(bosses.map((b) => b.floor))).sort(
-    (a, b) => a - b
+  const allFloors = Array.from(new Set(bosses.map((b) => b.floor))).sort(
+    (a, b) => {
+      const aIsFavorite = favoriteFloors.includes(a);
+      const bIsFavorite = favoriteFloors.includes(b);
+      if (aIsFavorite && !bIsFavorite) return -1;
+      if (!aIsFavorite && bIsFavorite) return 1;
+      return a - b;
+    }
   );
 
   const handleOpenSetTimeDialog = (boss: Boss) => {
@@ -53,12 +89,33 @@ export function BossTimers() {
     const floorBosses = bossList.filter((b) => b.floor === floor);
     if (floorBosses.length === 0) return null;
 
+    const isFavorite = favoriteFloors.includes(floor);
+
     return (
       <AccordionItem value={`floor-${floor}`} key={floor}>
         <AccordionTrigger>
-          <h2 className="text-2xl font-headline font-semibold text-primary">
-            Folkvang - {floor}F
-          </h2>
+          <div className="flex items-center justify-between w-full">
+            <h2 className="text-2xl font-headline font-semibold text-primary">
+              Folkvang - {floor}F
+            </h2>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="mr-2 hover:bg-transparent"
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent accordion from toggling
+                toggleFavorite(floor);
+              }}
+            >
+              <Star
+                className={cn(
+                  'h-6 w-6 text-yellow-500 transition-all',
+                  isFavorite ? 'fill-current' : 'fill-transparent'
+                )}
+              />
+              <span className="sr-only">Toggle Favorite</span>
+            </Button>
+          </div>
         </AccordionTrigger>
         <AccordionContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pt-4">
@@ -79,9 +136,9 @@ export function BossTimers() {
     <Accordion
       type="multiple"
       className="w-full space-y-4"
-      defaultValue={floors.map((f) => `floor-${f}`)}
+      defaultValue={allFloors.map((f) => `floor-${f}`)}
     >
-      {floors.map((floor) => renderFloorGroup(floor, bossList))}
+      {allFloors.map((floor) => renderFloorGroup(floor, bossList))}
     </Accordion>
   );
 
