@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { bosses, type Boss } from '@/lib/bosses';
 import { BossCard } from '@/components/BossCard';
@@ -18,17 +18,20 @@ import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useNotifications } from './Notifications';
 
 export function BossTimers() {
   const [editingBoss, setEditingBoss] = useState<Boss | null>(null);
   const { toast } = useToast();
   const firestore = useFirestore();
   const [favoriteFloors, setFavoriteFloors] = useState<number[]>([]);
+  const { scheduleNotification } = useNotifications();
 
   useEffect(() => {
     try {
       const savedFavorites = localStorage.getItem('favoriteFloors');
       if (savedFavorites) {
+        
         setFavoriteFloors(JSON.parse(savedFavorites));
       }
     } catch (error) {
@@ -64,26 +67,35 @@ export function BossTimers() {
     }
   );
 
-  const handleOpenSetTimeDialog = (boss: Boss) => {
+  const handleOpenSetTimeDialog = useCallback((boss: Boss) => {
     setEditingBoss(boss);
-  };
+  }, []);
 
-  const handleCloseSetTimeDialog = () => {
+  const handleCloseSetTimeDialog = useCallback(() => {
     setEditingBoss(null);
-  };
+  }, []);
 
-  const handleManualSetTime = (time: Date) => {
+  const handleSetTimeDialogVisibility = useCallback((isOpen: boolean) => {
+    if (!isOpen) {
+      handleCloseSetTimeDialog();
+    }
+  }, [handleCloseSetTimeDialog]);
+
+  const handleManualSetTime = useCallback((time: Date) => {
     if (editingBoss && firestore) {
       const docRef = doc(firestore, 'timers', editingBoss.id);
-      // Use non-blocking update
       setDocumentNonBlocking(docRef, { bossId: editingBoss.id, defeatedTime: time }, { merge: true });
+      
+      const newRespawnTime = new Date(time.getTime() + editingBoss.respawnHours * 3600 * 1000);
+      scheduleNotification(`${editingBoss.name} - ${editingBoss.floor}F`, newRespawnTime);
+
       toast({
         title: 'Timer Updated!',
         description: `${editingBoss.name} - ${editingBoss.floor}F timer was set manually.`,
       });
     }
     handleCloseSetTimeDialog();
-  };
+  }, [editingBoss, firestore, scheduleNotification, toast, handleCloseSetTimeDialog]);
 
   const renderFloorGroup = (floor: number, bossList: Boss[]) => {
     const floorBosses = bossList.filter((b) => b.floor === floor);
@@ -93,37 +105,37 @@ export function BossTimers() {
 
     return (
       <AccordionItem value={`floor-${floor}`} key={floor}>
-        <AccordionTrigger>
-          <div className="flex items-center justify-between w-full">
+        <div className="flex items-center w-full">
+          <AccordionTrigger className="flex-grow">
             <h2 className="text-2xl font-headline font-semibold text-primary">
               Folkvang - {floor}F
             </h2>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="mr-2 hover:bg-transparent"
-              onClick={(e) => {
-                e.stopPropagation(); // Prevent accordion from toggling
-                toggleFavorite(floor);
-              }}
-            >
-              <Star
-                className={cn(
-                  'h-6 w-6 text-yellow-500 transition-all',
-                  isFavorite ? 'fill-current' : 'fill-transparent'
-                )}
-              />
-              <span className="sr-only">Toggle Favorite</span>
-            </Button>
-          </div>
-        </AccordionTrigger>
+          </AccordionTrigger>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="mr-2 hover:bg-transparent flex-shrink-0"
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent accordion from toggling if inside trigger
+              toggleFavorite(floor);
+            }}
+          >
+            <Star
+              className={cn(
+                'h-6 w-6 text-yellow-500 transition-all',
+                isFavorite ? 'fill-current' : 'fill-transparent'
+              )}
+            />
+            <span className="sr-only">Toggle Favorite</span>
+          </Button>
+        </div>
         <AccordionContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pt-4">
             {floorBosses.map((boss) => (
               <BossCard
                 key={boss.id}
                 boss={boss}
-                onOpenSetTimeDialog={() => handleOpenSetTimeDialog(boss)}
+                onOpenSetTimeDialog={handleOpenSetTimeDialog}
               />
             ))}
           </div>
@@ -147,10 +159,10 @@ export function BossTimers() {
       <Tabs defaultValue="inter" className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-8 h-12">
           <TabsTrigger value="inter" className="text-base">
-            Inter-Server (8h)
+            Inter-Server (2h)
           </TabsTrigger>
           <TabsTrigger value="normal" className="text-base">
-            Normal (2h)
+            Normal (8h)
           </TabsTrigger>
         </TabsList>
         <TabsContent value="inter" className="mt-6">
@@ -164,11 +176,7 @@ export function BossTimers() {
       {editingBoss && (
         <SetTimeDialog
           isOpen={!!editingBoss}
-          onOpenChange={(isOpen) => {
-            if (!isOpen) {
-              handleCloseSetTimeDialog();
-            }
-          }}
+          onOpenChange={handleSetTimeDialogVisibility}
           onSetTime={handleManualSetTime}
           bossName={`${editingBoss.name} - ${editingBoss.floor}F`}
         />

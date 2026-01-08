@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Boss } from '@/lib/bosses';
 import { useTimer } from '@/hooks/useTimer';
 import {
@@ -20,6 +20,7 @@ import { useFirestore, useMemoFirebase } from '@/firebase/provider';
 import { doc, onSnapshot, Timestamp } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useDoc } from '@/firebase';
+import { useNotifications } from './Notifications';
 
 function BossCardSkeleton() {
   return (
@@ -40,12 +41,14 @@ function BossCardSkeleton() {
 
 type BossCardProps = {
   boss: Boss;
-  onOpenSetTimeDialog: () => void;
+  onOpenSetTimeDialog: (boss: Boss) => void;
 };
 
 export function BossCard({ boss, onOpenSetTimeDialog }: BossCardProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { scheduleNotification } = useNotifications();
+
 
   const timerDocRef = useMemoFirebase(
     () => (firestore ? doc(firestore, 'timers', boss.id) : null),
@@ -56,22 +59,34 @@ export function BossCard({ boss, onOpenSetTimeDialog }: BossCardProps) {
 
   const defeatedAt = timerData?.defeatedTime ? timerData.defeatedTime.toDate() : null;
 
-  const respawnTime = defeatedAt
-    ? new Date(defeatedAt.getTime() + boss.respawnHours * 3600 * 1000)
-    : null;
+  const respawnTime = useMemo(() => {
+    if (!defeatedAt) return null;
+    return new Date(defeatedAt.getTime() + boss.respawnHours * 3600 * 1000)
+  }, [defeatedAt, boss.respawnHours]);
+
   const { hours, minutes, seconds, isUp, totalSeconds } = useTimer(respawnTime);
   const isCloseToRespawn = !isUp && totalSeconds > 0 && totalSeconds < 300; // 5 minutes
 
-  const handleDefeat = (time: Date) => {
+  useEffect(() => {
+    if (respawnTime && !isUp) {
+      scheduleNotification(`${boss.name} - ${boss.floor}F`, respawnTime);
+    }
+  }, [respawnTime?.getTime(), isUp]);
+
+
+  const handleDefeat = useCallback((time: Date) => {
     if (!firestore) return;
     const docRef = doc(firestore, 'timers', boss.id);
-    // Use non-blocking update
     setDocumentNonBlocking(docRef, { bossId: boss.id, defeatedTime: time }, { merge: true });
+    
+    const newRespawnTime = new Date(time.getTime() + boss.respawnHours * 3600 * 1000);
+    scheduleNotification(`${boss.name} - ${boss.floor}F`, newRespawnTime);
+
     toast({
       title: 'Timer Started!',
       description: `${boss.name} - ${boss.floor}F will respawn in ${boss.respawnHours} hours.`,
     });
-  };
+  },[firestore, boss.id, boss.name, boss.floor, boss.respawnHours, scheduleNotification, toast]);
 
   if (isLoading) {
     return <BossCardSkeleton />;
@@ -138,7 +153,7 @@ export function BossCard({ boss, onOpenSetTimeDialog }: BossCardProps) {
           Mark Defeated
         </Button>
         <Button
-          onClick={onOpenSetTimeDialog}
+          onClick={() => onOpenSetTimeDialog(boss)}
           className="w-full sm:w-auto"
           variant="outline"
           size="icon"

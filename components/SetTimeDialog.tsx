@@ -34,12 +34,17 @@ export function SetTimeDialog({ isOpen, onOpenChange, onSetTime, bossName }: Set
   const [minute, setMinute] = useState("");
   const [period, setPeriod] = useState("PM");
   const { toast } = useToast();
+  const timeZoneOffset = 8 * 60; // GMT+8 in minutes
 
   useEffect(() => {
     if (isOpen) {
+      // Calculate current time in GMT+8
       const now = new Date();
-      let h = now.getHours();
-      const m = now.getMinutes();
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const gmt8Time = new Date(utc + (timeZoneOffset * 60000));
+
+      let h = gmt8Time.getUTCHours();
+      const m = gmt8Time.getUTCMinutes();
       let p = "AM";
 
       if (h >= 12) {
@@ -49,7 +54,7 @@ export function SetTimeDialog({ isOpen, onOpenChange, onSetTime, bossName }: Set
         h -= 12;
       }
       if (h === 0) {
-        h = 12;
+        h = 12; // 12 AM
       }
       
       setHour(h.toString());
@@ -74,17 +79,26 @@ export function SetTimeDialog({ isOpen, onOpenChange, onSetTime, bossName }: Set
     let hour24 = h;
     if (period === 'PM' && h < 12) {
       hour24 += 12;
-    } else if (period === 'AM' && h === 12) { // 12 AM (midnight) is 00:00
+    } else if (period === 'AM' && h === 12) { // 12 AM is 00 hours
       hour24 = 0;
     }
-    
-    const targetTime = new Date();
-    targetTime.setHours(hour24, m, 0, 0);
 
-    // If the calculated time is in the future relative to now,
-    // it means the boss was defeated on the previous day.
-    if (targetTime > new Date()) {
-        targetTime.setDate(targetTime.getDate() - 1);
+    // Get current date parts in GMT+8
+    const now = new Date();
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const gmt8Now = new Date(utc + (timeZoneOffset * 60000));
+    
+    const year = gmt8Now.getUTCFullYear();
+    const month = gmt8Now.getUTCMonth();
+    const day = gmt8Now.getUTCDate();
+
+    // Create the target date object in UTC with the user's time
+    const targetTime = new Date(Date.UTC(year, month, day, hour24, m, 0));
+
+    // If the calculated time is in the future relative to the real current time,
+    // it must have been from the previous day.
+    if (targetTime > now) {
+      targetTime.setUTCDate(targetTime.getUTCDate() - 1);
     }
     
     onSetTime(targetTime);
