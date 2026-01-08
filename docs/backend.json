@@ -1,0 +1,152 @@
+{
+  "entities": {
+    "Boss": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Boss",
+      "type": "object",
+      "description": "Represents a boss in the Folkvang Watch application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Boss entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the boss."
+        },
+        "floorId": {
+          "type": "string",
+          "description": "Reference to Floor. (Relationship: Floor 1:N Boss)"
+        },
+        "serverType": {
+          "type": "string",
+          "description": "The type of server the boss is on (e.g., 'Inter-Server', 'Normal')."
+        },
+        "respawnTime": {
+          "type": "number",
+          "description": "The respawn time for the boss in hours.",
+          "format": "number"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "floorId",
+        "serverType",
+        "respawnTime"
+      ]
+    },
+    "Floor": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Floor",
+      "type": "object",
+      "description": "Represents a floor in Folkvang.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Floor entity."
+        },
+        "floorNumber": {
+          "type": "number",
+          "description": "The floor number (e.g., 1, 2, 3).",
+          "format": "number"
+        }
+      },
+      "required": [
+        "id",
+        "floorNumber"
+      ]
+    },
+    "Timer": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Timer",
+      "type": "object",
+      "description": "Represents a timer for a specific boss instance.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Timer entity."
+        },
+        "bossId": {
+          "type": "string",
+          "description": "Reference to Boss. (Relationship: Boss 1:N Timer)"
+        },
+        "defeatedTime": {
+          "type": "string",
+          "description": "The date and time the boss was defeated.",
+          "format": "date-time"
+        },
+        "scheduledRespawnTime": {
+          "type": "string",
+          "description": "The scheduled respawn time of the boss, calculated based on the defeated time and respawn time.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "bossId",
+        "defeatedTime",
+        "scheduledRespawnTime"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/floors/{floorId}",
+        "definition": {
+          "entityName": "Floor",
+          "schema": {
+            "$ref": "#/backend/entities/Floor"
+          },
+          "description": "Stores floor information. floorId is the unique identifier for each floor.",
+          "params": [
+            {
+              "name": "floorId",
+              "description": "The unique identifier for the floor."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/bosses/{bossId}",
+        "definition": {
+          "entityName": "Boss",
+          "schema": {
+            "$ref": "#/backend/entities/Boss"
+          },
+          "description": "Stores boss information, including floorId, serverType, and respawnTime. bossId is the unique identifier for each boss.",
+          "params": [
+            {
+              "name": "bossId",
+              "description": "The unique identifier for the boss."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/timers/{timerId}",
+        "definition": {
+          "entityName": "Timer",
+          "schema": {
+            "$ref": "#/backend/entities/Timer"
+          },
+          "description": "Stores timer information for each boss, including defeatedTime and scheduledRespawnTime.  timerId is the unique identifier for each timer. bossId links to the Boss document.",
+          "params": [
+            {
+              "name": "timerId",
+              "description": "The unique identifier for the timer."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore data structure is designed to efficiently manage and query boss timers based on floors and server types. It uses structural segregation by separating different entities into their own collections. Authorization Independence is not applicable since there are no user roles or permissions required. Since the application uses anonymous authentication, access to read and write timers will be open, but could be restricted in the security rules to prevent abuse if needed. The `Floors` collection stores floor information. `Bosses` stores boss information and their relationship to floors via the `floorId` field. `Timers` stores timer information and relates back to the boss via `bossId`. The structure is designed to make it easy to query timers based on floors and server types using Firestore queries."
+  }
+}
