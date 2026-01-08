@@ -21,45 +21,42 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import type { Boss } from "@/lib/bosses";
 
 type SetTimeDialogProps = {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   onSetTime: (date: Date) => void;
-  bossName: string;
+  boss: Boss;
 };
 
-export function SetTimeDialog({ isOpen, onOpenChange, onSetTime, bossName }: SetTimeDialogProps) {
+export function SetTimeDialog({ isOpen, onOpenChange, onSetTime, boss }: SetTimeDialogProps) {
   const [hour, setHour] = useState("");
   const [minute, setMinute] = useState("");
   const [period, setPeriod] = useState("PM");
   const { toast } = useToast();
-  const timeZoneOffset = 8 * 60; // GMT+8 in minutes
+
+  const bossName = `[${boss.type.charAt(0).toUpperCase() + boss.type.slice(1)}] ${boss.name} - ${boss.floor}F`;
 
   useEffect(() => {
     if (isOpen) {
-      // Calculate current time in GMT+8
       const now = new Date();
-      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-      const gmt8Time = new Date(utc + (timeZoneOffset * 60000));
-
-      let h = gmt8Time.getUTCHours();
-      const m = gmt8Time.getUTCMinutes();
-      let p = "AM";
-
-      if (h >= 12) {
-        p = "PM";
-      }
-      if (h > 12) {
-        h -= 12;
-      }
-      if (h === 0) {
-        h = 12; // 12 AM
-      }
       
-      setHour(h.toString());
-      setMinute(m.toString().padStart(2, '0'));
-      setPeriod(p);
+      // Get current time in Asia/Singapore timezone (GMT+8)
+      const timeString = now.toLocaleString('en-US', {
+        timeZone: 'Asia/Singapore',
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: true,
+      });
+
+      // E.g., "8:30 PM"
+      const [time, periodStr] = timeString.split(' ');
+      const [hourStr, minuteStr] = time.split(':');
+
+      setHour(hourStr);
+      setMinute(minuteStr);
+      setPeriod(periodStr);
     }
   }, [isOpen]);
 
@@ -83,25 +80,27 @@ export function SetTimeDialog({ isOpen, onOpenChange, onSetTime, bossName }: Set
       hour24 = 0;
     }
 
-    // Get current date parts in GMT+8
-    const now = new Date();
-    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-    const gmt8Now = new Date(utc + (timeZoneOffset * 60000));
+    // Create a date object representing today in GMT+8
+    const nowInGmt8 = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Singapore' }));
     
-    const year = gmt8Now.getUTCFullYear();
-    const month = gmt8Now.getUTCMonth();
-    const day = gmt8Now.getUTCDate();
+    // Set the time from user input
+    nowInGmt8.setHours(hour24, m, 0, 0);
 
-    // Create the target date object in UTC with the user's time
-    const targetTime = new Date(Date.UTC(year, month, day, hour24, m, 0));
+    // Create a final date object from the GMT+8 parts. 
+    // This will be interpreted by the browser in its local timezone, so we need to account for the offset.
+    const year = nowInGmt8.getFullYear();
+    const month = nowInGmt8.getMonth();
+    const day = nowInGmt8.getDate();
 
-    // If the calculated time is in the future relative to the real current time,
-    // it must have been from the previous day.
-    if (targetTime > now) {
-      targetTime.setUTCDate(targetTime.getUTCDate() - 1);
+    // Construct a UTC date then adjust. This is more reliable.
+    let finalDate = new Date(Date.UTC(year, month, day, hour24, m, 0) - (8 * 60 * 60 * 1000));
+    
+    // If the calculated time is in the future, it must have been from the previous day
+    if (finalDate > new Date()) {
+      finalDate.setDate(finalDate.getDate() - 1);
     }
     
-    onSetTime(targetTime);
+    onSetTime(finalDate);
     onOpenChange(false); // Close the dialog on success
   };
   

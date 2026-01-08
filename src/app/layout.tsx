@@ -61,6 +61,22 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      const isProd = process.env.NODE_ENV === 'production';
+      const repoName = 'loy-rog-boss-watch';
+      const swPath = isProd ? `/${repoName}/firebase-messaging-sw.js` : '/firebase-messaging-sw.js';
+
+      navigator.serviceWorker.register(swPath)
+        .then(function(registration) {
+          console.log('Service Worker registration successful with scope: ', registration.scope);
+        }).catch(function(err) {
+          console.log('Service Worker registration failed: ', err);
+        });
+    }
+  }, []);
+
   return (
     <html lang="en" className="dark">
       <head>

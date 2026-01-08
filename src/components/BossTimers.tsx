@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { bosses, type Boss } from '@/lib/bosses';
 import { BossCard } from '@/components/BossCard';
@@ -18,26 +18,60 @@ import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useNotifications } from './Notifications';
+
+const allFloors = Array.from(new Set(bosses.map((b) => b.floor))).sort(
+  (a, b) => a - b
+);
 
 export function BossTimers() {
   const [editingBoss, setEditingBoss] = useState<Boss | null>(null);
   const { toast } = useToast();
   const firestore = useFirestore();
   const [favoriteFloors, setFavoriteFloors] = useState<number[]>([]);
-  const { scheduleNotification } = useNotifications();
+  const [activeAccordionItems, setActiveAccordionItems] = useState<string[]>([]);
+
+  const sortedFloors = useMemo(() => {
+    return [...allFloors].sort(
+        (a, b) => {
+        const aIsFavorite = favoriteFloors.includes(a);
+        const bIsFavorite = favoriteFloors.includes(b);
+        if (aIsFavorite && !bIsFavorite) return -1;
+        if (!aIsFavorite && bIsFavorite) return 1;
+        return a - b;
+        }
+    );
+  }, [favoriteFloors]);
 
   useEffect(() => {
     try {
       const savedFavorites = localStorage.getItem('favoriteFloors');
       if (savedFavorites) {
-        
-        setFavoriteFloors(JSON.parse(savedFavorites));
+        const parsedFavorites = JSON.parse(savedFavorites);
+        setFavoriteFloors(parsedFavorites);
+        // Initially, open favorite floors
+        setActiveAccordionItems(parsedFavorites.map((f: number) => `floor-${f}`));
+      } else {
+        // If no favorites, open all by default
+        setActiveAccordionItems(allFloors.map(f => `floor-${f}`));
       }
     } catch (error) {
       console.error('Could not load favorites from local storage', error);
+      setActiveAccordionItems(allFloors.map(f => `floor-${f}`));
     }
   }, []);
+  
+  useEffect(() => {
+    const favoriteItems = sortedFloors.filter(f => favoriteFloors.includes(f)).map(f => `floor-${f}`);
+    
+    // If there are favorites, only open those by default on first load.
+    // Otherwise, keep all open.
+    if(favoriteFloors.length > 0) {
+        setActiveAccordionItems(favoriteItems);
+    } else {
+        setActiveAccordionItems(allFloors.map(f => `floor-${f}`));
+    }
+  
+  }, [favoriteFloors, sortedFloors]);
 
   const toggleFavorite = (floor: number) => {
     let updatedFavorites: number[];
@@ -56,16 +90,6 @@ export function BossTimers() {
 
   const interServerBosses = bosses.filter((b) => b.type === 'inter');
   const normalBosses = bosses.filter((b) => b.type === 'normal');
-
-  const allFloors = Array.from(new Set(bosses.map((b) => b.floor))).sort(
-    (a, b) => {
-      const aIsFavorite = favoriteFloors.includes(a);
-      const bIsFavorite = favoriteFloors.includes(b);
-      if (aIsFavorite && !bIsFavorite) return -1;
-      if (!aIsFavorite && bIsFavorite) return 1;
-      return a - b;
-    }
-  );
 
   const handleOpenSetTimeDialog = useCallback((boss: Boss) => {
     setEditingBoss(boss);
@@ -86,16 +110,15 @@ export function BossTimers() {
       const docRef = doc(firestore, 'timers', editingBoss.id);
       setDocumentNonBlocking(docRef, { bossId: editingBoss.id, defeatedTime: time }, { merge: true });
       
-      const newRespawnTime = new Date(time.getTime() + editingBoss.respawnHours * 3600 * 1000);
-      scheduleNotification(`${editingBoss.name} - ${editingBoss.floor}F`, newRespawnTime);
+      const bossIdentifier = `[${editingBoss.type.charAt(0).toUpperCase() + editingBoss.type.slice(1)}] ${editingBoss.name} - ${editingBoss.floor}F`;
 
       toast({
         title: 'Timer Updated!',
-        description: `${editingBoss.name} - ${editingBoss.floor}F timer was set manually.`,
+        description: `${bossIdentifier} timer was set manually.`,
       });
     }
     handleCloseSetTimeDialog();
-  }, [editingBoss, firestore, scheduleNotification, toast, handleCloseSetTimeDialog]);
+  }, [editingBoss, firestore, toast, handleCloseSetTimeDialog]);
 
   const renderFloorGroup = (floor: number, bossList: Boss[]) => {
     const floorBosses = bossList.filter((b) => b.floor === floor);
@@ -148,9 +171,10 @@ export function BossTimers() {
     <Accordion
       type="multiple"
       className="w-full space-y-4"
-      defaultValue={allFloors.map((f) => `floor-${f}`)}
+      value={activeAccordionItems}
+      onValueChange={setActiveAccordionItems}
     >
-      {allFloors.map((floor) => renderFloorGroup(floor, bossList))}
+      {sortedFloors.map((floor) => renderFloorGroup(floor, bossList))}
     </Accordion>
   );
 
@@ -178,7 +202,7 @@ export function BossTimers() {
           isOpen={!!editingBoss}
           onOpenChange={handleSetTimeDialogVisibility}
           onSetTime={handleManualSetTime}
-          bossName={`${editingBoss.name} - ${editingBoss.floor}F`}
+          boss={editingBoss}
         />
       )}
     </>

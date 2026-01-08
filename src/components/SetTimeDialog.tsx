@@ -21,19 +21,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import type { Boss } from "@/lib/bosses";
 
 type SetTimeDialogProps = {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   onSetTime: (date: Date) => void;
-  bossName: string;
+  boss: Boss;
 };
 
-export function SetTimeDialog({ isOpen, onOpenChange, onSetTime, bossName }: SetTimeDialogProps) {
+export function SetTimeDialog({ isOpen, onOpenChange, onSetTime, boss }: SetTimeDialogProps) {
   const [hour, setHour] = useState("");
   const [minute, setMinute] = useState("");
   const [period, setPeriod] = useState("PM");
   const { toast } = useToast();
+
+  const bossName = `[${boss.type.charAt(0).toUpperCase() + boss.type.slice(1)}] ${boss.name} - ${boss.floor}F`;
 
   useEffect(() => {
     if (isOpen) {

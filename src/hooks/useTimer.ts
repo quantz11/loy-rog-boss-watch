@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 
 const calculateTimeLeft = (targetDate: Date | null) => {
   if (!targetDate) {
-    return { hours: '00', minutes: 'O0', seconds: '00', totalSeconds: 0, isUp: true };
+    return { hours: '00', minutes: '00', seconds: '00', totalSeconds: 0, isUp: true };
   }
   
   const now = new Date().getTime();

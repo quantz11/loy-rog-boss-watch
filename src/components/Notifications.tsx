@@ -1,128 +1,95 @@
 
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Bell, BellOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
-type ScheduledNotification = {
-  timeoutId: number;
-  notificationTime: number;
-};
+import { getTokenAndSave } from '@/firebase/messaging';
+import { useFirebase, useFirebaseApp } from '@/firebase';
+import { GlobalTimerManager } from '@/components/GlobalTimerManager';
 
 type NotificationContextType = {
-  permission: NotificationPermission | 'unsupported';
+  permission: NotificationPermission | 'unsupported' | 'loading';
   requestPermission: () => void;
-  scheduleNotification: (bossName: string, respawnTime: Date) => void;
 };
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
-const NOTIFICATION_MINUTE_THRESHOLD = 3;
+export const triggerNotification = (title: string, options: NotificationOptions) => {
+    if ('serviceWorker' in navigator && 'ServiceWorkerRegistration' in window) {
+      navigator.serviceWorker.getRegistration().then(registration => {
+        if (registration && registration.active) {
+          registration.showNotification(title, options)
+            .then(() => {
+              console.log('Notification sent successfully');
+            })
+            .catch(err => {
+              console.error('Notification failed to send: ', err);
+            });
+        } else {
+          console.error('No active service worker registration found to show notification. It might still be activating.');
+        }
+      });
+    } else {
+        console.error('Browser does not support service workers or notifications.');
+    }
+  };
+
 
 export const Notifications = ({ children }: { children: ReactNode }) => {
   const { toast } = useToast();
-  const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>('default');
-  const [scheduledNotifications, setScheduledNotifications] = useState<Record<string, ScheduledNotification>>({});
-
+  const { firestore, user } = useFirebase();
+  const firebaseApp = useFirebaseApp();
+  const [permission, setPermission] = useState<NotificationPermission | 'unsupported' | 'loading'>('loading');
+  
   useEffect(() => {
-    if (!('Notification' in window)) {
+    if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
       setPermission('unsupported');
     } else {
       setPermission(Notification.permission);
     }
   }, []);
 
-  const requestPermission = useCallback(() => {
-    if (!('Notification' in window)) {
-      toast({
-        variant: 'destructive',
-        title: 'Unsupported Browser',
-        description: 'This browser does not support desktop notifications.',
-      });
-      return;
-    }
-    Notification.requestPermission().then((perm) => {
-      setPermission(perm);
-      if (perm === 'granted') {
+  const requestPermission = useCallback(async () => {
+    if (permission === 'loading' || !firestore || !user || !firebaseApp) return;
+    setPermission('loading');
+
+    try {
+        const result = await Notification.requestPermission();
+        setPermission(result);
+
+      if (result === 'granted') {
+        await getTokenAndSave(firebaseApp, firestore, user.uid);
         toast({
           title: 'Notifications Enabled!',
-          description: `You will now receive alerts ${NOTIFICATION_MINUTE_THRESHOLD} minutes before a boss respawns.`,
+          description: 'You can now receive push notifications for boss respawns.',
         });
       } else {
-        toast({
+         toast({
             variant: 'destructive',
-            title: 'Notifications Disabled',
-            description: 'You have blocked notifications. You can enable them in your browser settings.',
+            title: 'Notifications Blocked',
+            description: 'You have blocked notifications. To use this feature, please enable them in your browser settings.',
         });
       }
-    });
-  }, [toast]);
-
-  const scheduleNotification = useCallback((bossName: string, respawnTime: Date) => {
-    if (Notification.permission !== 'granted') {
-      return;
+    } catch (error) {
+      console.error('Error getting FCM token:', error);
+      setPermission(Notification.permission); // Reset to actual permission
+      toast({
+        variant: 'destructive',
+        title: 'Could Not Enable Notifications',
+        description: 'An error occurred. Please try again.',
+      });
     }
 
-    const notificationTime = respawnTime.getTime() - NOTIFICATION_MINUTE_THRESHOLD * 60 * 1000;
-    const now = new Date().getTime();
-
-    if (notificationTime <= now) {
-      // Don't schedule notifications for the past
-      return;
-    }
-    
-    setScheduledNotifications(prev => {
-        const existing = prev[bossName];
-        // If a notification for this boss at this exact time already exists, do nothing.
-        if (existing && existing.notificationTime === notificationTime) {
-            return prev;
-        }
-
-        // Clear any existing timeout for this boss to avoid duplicates from old timers
-        if (existing) {
-            clearTimeout(existing.timeoutId);
-        }
-
-        const timeoutId = window.setTimeout(() => {
-            new Notification('Boss Respawning Soon!', {
-                body: `${bossName} is respawning in ${NOTIFICATION_MINUTE_THRESHOLD} minutes!`,
-                icon: '/favicon.ico', 
-            });
-            // After notification fires, remove it from the state
-            setScheduledNotifications(p => {
-                const newScheduled = {...p};
-                delete newScheduled[bossName];
-                return newScheduled;
-            })
-
-        }, notificationTime - now);
-        
-        // Add the new notification to the state
-        return {
-            ...prev, 
-            [bossName]: { timeoutId, notificationTime }
-        };
-    });
-
-  }, []); // This useCallback has no dependencies on purpose to keep it stable. It uses functional updates for state.
-
-  useEffect(() => {
-    // This is a cleanup function for when the component unmounts.
-    // It clears all scheduled timeouts to prevent memory leaks.
-    return () => {
-        Object.values(scheduledNotifications).forEach(({ timeoutId }) => clearTimeout(timeoutId));
-    };
-  }, [scheduledNotifications]);
-
+  }, [firebaseApp, firestore, user, permission, toast]);
 
   return (
-    <NotificationContext.Provider value={{ permission, requestPermission, scheduleNotification }}>
-      {permission === 'default' && (
+    <NotificationContext.Provider value={{ permission, requestPermission }}>
+        {permission === 'default' && (
          <div className="bg-secondary/50 border border-dashed border-secondary-foreground/20 p-4 rounded-lg mb-8 flex items-center justify-between">
-            <p className="text-sm text-secondary-foreground">Enable browser notifications to get alerts before a boss respawns.</p>
-            <Button onClick={requestPermission}>
+            <p className="text-sm text-secondary-foreground">Enable push notifications to get alerts for boss respawns.</p>
+            <Button onClick={requestPermission} disabled={permission === 'loading'}>
                 <Bell className="mr-2 h-4 w-4" /> Enable Notifications
             </Button>
          </div>
@@ -132,6 +99,14 @@ export const Notifications = ({ children }: { children: ReactNode }) => {
             <p className="text-sm text-destructive-foreground/80">You have blocked notifications. To use this feature, please enable notifications for this site in your browser settings.</p>
              <BellOff className="h-5 w-5 text-destructive" />
          </div>
+      )}
+       {permission === 'granted' && (
+        <>
+            <GlobalTimerManager />
+            <div className="bg-green-600/10 border border-dashed border-green-600/50 p-4 rounded-lg mb-8 flex items-center justify-between">
+                <p className="text-sm text-green-200/80">Notifications are enabled. You'll get an alert 3 minutes before a boss respawns.</p>
+            </div>
+        </>
       )}
       {children}
     </NotificationContext.Provider>

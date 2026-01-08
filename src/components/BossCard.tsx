@@ -17,10 +17,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useMemoFirebase } from '@/firebase/provider';
-import { doc, onSnapshot, Timestamp } from 'firebase/firestore';
+import { doc, Timestamp } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useDoc } from '@/firebase';
-import { useNotifications } from './Notifications';
 
 function BossCardSkeleton() {
   return (
@@ -47,8 +46,6 @@ type BossCardProps = {
 export function BossCard({ boss, onOpenSetTimeDialog }: BossCardProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
-  const { scheduleNotification } = useNotifications();
-
 
   const timerDocRef = useMemoFirebase(
     () => (firestore ? doc(firestore, 'timers', boss.id) : null),
@@ -67,26 +64,18 @@ export function BossCard({ boss, onOpenSetTimeDialog }: BossCardProps) {
   const { hours, minutes, seconds, isUp, totalSeconds } = useTimer(respawnTime);
   const isCloseToRespawn = !isUp && totalSeconds > 0 && totalSeconds < 300; // 5 minutes
 
-  useEffect(() => {
-    if (respawnTime && !isUp) {
-      scheduleNotification(`${boss.name} - ${boss.floor}F`, respawnTime);
-    }
-  }, [respawnTime?.getTime(), isUp]);
-
+  const bossIdentifier = useMemo(() => `[${boss.type.charAt(0).toUpperCase() + boss.type.slice(1)}] ${boss.name} - ${boss.floor}F`, [boss.name, boss.floor, boss.type]);
 
   const handleDefeat = useCallback((time: Date) => {
     if (!firestore) return;
     const docRef = doc(firestore, 'timers', boss.id);
     setDocumentNonBlocking(docRef, { bossId: boss.id, defeatedTime: time }, { merge: true });
     
-    const newRespawnTime = new Date(time.getTime() + boss.respawnHours * 3600 * 1000);
-    scheduleNotification(`${boss.name} - ${boss.floor}F`, newRespawnTime);
-
     toast({
       title: 'Timer Started!',
-      description: `${boss.name} - ${boss.floor}F will respawn in ${boss.respawnHours} hours.`,
+      description: `${bossIdentifier} will respawn in ${boss.respawnHours} hours.`,
     });
-  },[firestore, boss.id, boss.name, boss.floor, boss.respawnHours, scheduleNotification, toast]);
+  },[firestore, boss.id, bossIdentifier, boss.respawnHours, toast]);
 
   if (isLoading) {
     return <BossCardSkeleton />;
@@ -104,7 +93,7 @@ export function BossCard({ boss, onOpenSetTimeDialog }: BossCardProps) {
       <CardHeader className="flex-row items-center gap-4 space-y-0 pb-4">
         <boss.Icon className="w-10 h-10 text-primary shrink-0" />
         <CardTitle className="font-headline text-lg">
-          {boss.name} - {boss.floor}F
+          {bossIdentifier}
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-grow flex items-center justify-center py-6">

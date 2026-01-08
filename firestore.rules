@@ -20,5 +20,18 @@ service cloud.firestore {
     match /timers/{timerId} {
       allow read, write: if true;
     }
+
+    // Rules for FCM tokens.
+    // The document ID is the token itself.
+    match /fcmTokens/{token} {
+      // A user can create a token document for themselves.
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      // A user can only read their own token document.
+      allow read: if request.auth != null && resource.data.uid == request.auth.uid;
+      // A user can update their own token document (e.g., to update a timestamp).
+      allow update: if request.auth != null && resource.data.uid == request.auth.uid;
+      // Users cannot delete tokens.
+      allow delete: if false;
+    }
   }
 }
