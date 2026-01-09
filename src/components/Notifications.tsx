@@ -41,6 +41,17 @@ export const Notifications = ({ children }: { children: ReactNode }) => {
 
   const requestPermission = useCallback(async () => {
     if (permission === 'loading' || !firestore || !user || !firebaseApp) return;
+
+    // Prevent anonymous users from enabling notifications
+    if (user.isAnonymous) {
+        toast({
+            variant: 'destructive',
+            title: 'Authentication Required',
+            description: 'You must be logged in to enable notifications.',
+        });
+        return;
+    }
+
     setPermission('loading');
 
     try {
@@ -73,9 +84,11 @@ export const Notifications = ({ children }: { children: ReactNode }) => {
   }, [firebaseApp, firestore, user, permission, toast]);
   
 
+  const shouldShowNotificationPrompts = user && !user.isAnonymous;
+
   return (
     <NotificationContext.Provider value={{ permission, requestPermission }}>
-        {permission === 'default' && (
+        {shouldShowNotificationPrompts && permission === 'default' && (
          <div className="bg-secondary/50 border border-dashed border-secondary-foreground/20 p-4 rounded-lg mb-8 flex items-center justify-between">
             <p className="text-sm text-secondary-foreground">Enable push notifications to get alerts for boss respawns.</p>
             <Button onClick={requestPermission} disabled={permission === 'loading'}>
@@ -83,13 +96,13 @@ export const Notifications = ({ children }: { children: ReactNode }) => {
             </Button>
          </div>
       )}
-      {permission === 'denied' && (
+      {shouldShowNotificationPrompts && permission === 'denied' && (
          <div className="bg-destructive/10 border border-dashed border-destructive/50 p-4 rounded-lg mb-8 flex items-center justify-between">
             <p className="text-sm text-destructive-foreground/80">You have blocked notifications. To use this feature, please enable notifications for this site in your browser settings.</p>
              <BellOff className="h-5 w-5 text-destructive" />
          </div>
       )}
-       {permission === 'granted' && (
+       {shouldShowNotificationPrompts && permission === 'granted' && (
         <>
             <GlobalTimerManager />
             <div className="bg-green-600/10 border border-dashed border-green-600/50 p-4 rounded-lg mb-8 flex items-center justify-between">
