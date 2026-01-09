@@ -1,36 +1,34 @@
 'use client';
-import type { Metadata } from 'next';
+import { usePathname, useRouter } from 'next/navigation';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
-import { initiateAnonymousSignIn, useUser } from '@/firebase';
+import { useUser } from '@/firebase';
 import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
-// This is a client component because it contains the Firebase provider
-// and logic to sign in the user. We can't do this on the server.
-/*
-export const metadata: Metadata = {
-  title: 'ROG Folkvang Boss Watch',
-  description: 'Boss timers for Legend of Ymir Folkvang bosses.',
-};
-*/
-
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
-  
-  useEffect(() => {
-    // This ensures a user is always signed in, even if anonymously.
-    // The useUser hook will reflect the new user state.
-    if (!user && !isUserLoading) {
-      initiateAnonymousSignIn();
-    }
-  }, [user, isUserLoading]);
+  const router = useRouter();
+  const pathname = usePathname();
 
-  if (isUserLoading) {
-    // While the initial user state is being determined, show a loading UI.
-    // This prevents children from rendering and attempting to fetch data
-    // before authentication is ready.
+  useEffect(() => {
+    // If loading is finished and there's no authenticated (non-anonymous) user
+    if (!isUserLoading && (!user || user.isAnonymous)) {
+      // Redirect to login page if they are not already on it
+      if (pathname !== '/login') {
+        router.replace('/login');
+      }
+    }
+    
+    // If user is logged in and tries to access /login, redirect to home
+    if (!isUserLoading && user && !user.isAnonymous && pathname === '/login') {
+      router.replace('/');
+    }
+  }, [user, isUserLoading, router, pathname]);
+
+  // While loading, or if we are about to redirect, show a loading screen
+  if (isUserLoading || (!user && pathname !== '/login')) {
     return (
       <div className="flex flex-col min-h-screen bg-background">
         <header className="bg-card/80 backdrop-blur-sm border-b sticky top-0 z-40">
@@ -52,9 +50,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       </div>
     )
   }
-
+  
+  // If user is logged in, or is on the login page, render the children
   return <>{children}</>;
 }
+
 
 export default function RootLayout({
   children,
