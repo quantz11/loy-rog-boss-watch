@@ -20,6 +20,13 @@ service cloud.firestore {
     match /timers/{timerId} {
       allow read, write: if true;
     }
+    
+    // Allow anyone to write to the login-attempts collection to log failures.
+    // Read access should be disabled for clients.
+    match /login-attempts/{attemptId} {
+      allow create: if true;
+      allow read, update, delete: if false;
+    }
 
     // Rules for FCM tokens.
     // The document ID is the token itself.
