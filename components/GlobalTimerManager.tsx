@@ -52,7 +52,7 @@ export function GlobalTimerManager() {
           console.log(`Triggering notification for ${bossIdentifier}`);
           triggerNotification(`${bossIdentifier} is respawning soon!`, {
             body: `Respawn in approximately 3 minutes.`,
-            icon: '/icons/icon-192x192.png',
+            icon: '/loy-rog-boss-watch/icon-192x192.png',
             tag: bossIdentifier, // Use tag to prevent multiple notifications for the same boss
           });
           notifiedBossesRef.current.add(bossIdentifier);

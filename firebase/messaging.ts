@@ -7,7 +7,7 @@ import { FirebaseApp } from "firebase/app";
 // IMPORTANT: The value for VAPID_KEY is a placeholder.
 // In this specific development environment, it is automatically
 // replaced with the correct key during the application's build process.
-// You do not need to manually change it.
+// You do not need to manually change it. A comment has been added to make this more clear.
 const VAPID_KEY = "YOUR_VAPID_KEY_HERE";
 
 /**

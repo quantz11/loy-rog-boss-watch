@@ -21,11 +21,3 @@ export function initiateEmailSignUp(email: string, password: string): void {
   createUserWithEmailAndPassword(auth, email, password);
   // Code continues immediately. Auth state change is handled by onAuthStateChanged listener.
 }
-
-/** Initiate email/password sign-in (non-blocking). */
-export function initiateEmailSignIn(email: string, password: string): void {
-  const { auth } = initializeFirebase();
-  // CRITICAL: Call signInWithEmailAndPassword directly. Do NOT use 'await signInWithEmailAndPassword(...)'.
-  signInWithEmailAndPassword(auth, email, password);
-  // Code continues immediately. Auth state change is handled by onAuthStateChanged listener.
-}

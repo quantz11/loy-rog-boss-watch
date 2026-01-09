@@ -27,8 +27,13 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     }
   }, [user, isUserLoading, router, pathname]);
 
-  // While loading, or if we are about to redirect, show a loading screen
-  if (isUserLoading || (!user && pathname !== '/login')) {
+  // Determine if we should show the loading skeleton
+  const showSkeleton = isUserLoading || 
+                      (!isUserLoading && (!user || user.isAnonymous) && pathname !== '/login') ||
+                      (!isUserLoading && user && !user.isAnonymous && pathname === '/login');
+
+
+  if (showSkeleton) {
     return (
       <div className="flex flex-col min-h-screen bg-background">
         <header className="bg-card/80 backdrop-blur-sm border-b sticky top-0 z-40">
@@ -51,7 +56,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     )
   }
   
-  // If user is logged in, or is on the login page, render the children
+  // If not showing skeleton, render the children (either the app or the login page)
   return <>{children}</>;
 }
 

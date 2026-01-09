@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Bell, BellOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -17,24 +17,12 @@ type NotificationContextType = {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export const triggerNotification = (title: string, options: NotificationOptions) => {
-    if ('serviceWorker' in navigator && 'ServiceWorkerRegistration' in window) {
-      navigator.serviceWorker.getRegistration().then(registration => {
-        if (registration && registration.active) {
-          registration.showNotification(title, options)
-            .then(() => {
-              console.log('Notification sent successfully');
-            })
-            .catch(err => {
-              console.error('Notification failed to send: ', err);
-            });
-        } else {
-          console.error('No active service worker registration found to show notification. It might still be activating.');
-        }
-      });
-    } else {
-        console.error('Browser does not support service workers or notifications.');
-    }
-  };
+  if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+    new Notification(title, options);
+  } else {
+    console.log('Notification permission not granted or feature not supported.');
+  }
+};
 
 
 export const Notifications = ({ children }: { children: ReactNode }) => {
@@ -83,6 +71,7 @@ export const Notifications = ({ children }: { children: ReactNode }) => {
     }
 
   }, [firebaseApp, firestore, user, permission, toast]);
+  
 
   return (
     <NotificationContext.Provider value={{ permission, requestPermission }}>
