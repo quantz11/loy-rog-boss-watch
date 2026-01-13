@@ -10,6 +10,8 @@ import { useFirestore, useUser } from '@/firebase';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useRouter } from 'next/navigation';
 
+const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
 export function ServerBossTimers() {
   const [editingBoss, setEditingBoss] = useState<ServerBoss | null>(null);
   const { toast } = useToast();
@@ -23,14 +25,23 @@ export function ServerBossTimers() {
   const [minute, setMinute] = useState('30');
   const [period, setPeriod] = useState('PM');
 
-  const handleOpenSetTimeDialog = useCallback((boss: ServerBoss) => {
+  const handleOpenSetTimeDialog = useCallback((boss: ServerBoss, currentRespawn: Date | null) => {
     if (user && !user.isAnonymous) {
       setEditingBoss(boss);
-      // Reset dialog state when opening
-      setDayOfWeek('');
-      setHour('8');
-      setMinute('30');
-      setPeriod('PM');
+      
+      const targetDate = currentRespawn ? currentRespawn : new Date();
+
+      // Get time parts in Asia/Singapore timezone safely
+      const dayStr = targetDate.toLocaleString('en-US', { timeZone: 'Asia/Singapore', weekday: 'long' });
+      const hourStr = targetDate.toLocaleString('en-US', { timeZone: 'Asia/Singapore', hour: 'numeric', hour12: true }).split(' ')[0];
+      const minuteStr = targetDate.toLocaleString('en-US', { timeZone: 'Asia/Singapore', minute: '2-digit' });
+      const periodStr = targetDate.toLocaleString('en-US', { timeZone: 'Asia/Singapore', hour: 'numeric', hour12: true }).split(' ')[1];
+      
+      setDayOfWeek(dayStr);
+      setHour(hourStr);
+      setMinute(minuteStr);
+      setPeriod(periodStr || 'PM'); // Default to PM if period is not found
+
     } else {
       toast({
         variant: 'destructive',
@@ -38,7 +49,7 @@ export function ServerBossTimers() {
         description: 'You must be logged in to set server boss timers. Redirecting to login...',
       });
       setTimeout(() => {
-        router.push('/login');
+        router.push('/login?redirect=/');
       }, 2000);
     }
   }, [user, router, toast]);
@@ -56,37 +67,44 @@ export function ServerBossTimers() {
       });
       return;
     }
+    
+    const targetDayIndex = daysOfWeek.indexOf(dayOfWeek);
 
-    const now = new Date();
-    const gmt8Offset = 8 * 60 * 60 * 1000;
-    const nowInGmt8 = new Date(now.getTime() + gmt8Offset);
-
+    // Get current date object in GMT+8
+    const nowSGT = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Singapore' }));
+    const currentDayIndexSGT = nowSGT.getDay();
+    
+    // Calculate how many days to add
+    let dayDifference = targetDayIndex - currentDayIndexSGT;
+    
+    // Convert input time to 24-hour format
     let hour24 = parseInt(hour, 10);
     if (period === 'PM' && hour24 < 12) {
       hour24 += 12;
-    }
-    if (period === 'AM' && hour24 === 12) {
+    } else if (period === 'AM' && hour24 === 12) { // Midnight case
       hour24 = 0;
     }
+    const minuteInt = parseInt(minute, 10);
 
-    const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const targetDayIndex = daysOfWeek.indexOf(dayOfWeek);
-    const currentDayIndex = nowInGmt8.getUTCDay();
+    // Create a temporary date object with the target time for today
+    const tempTargetDate = new Date(nowSGT);
+    tempTargetDate.setHours(hour24, minuteInt, 0, 0);
     
-    let dayDifference = targetDayIndex - currentDayIndex;
-
-    const respawnTime = new Date(nowInGmt8);
-    respawnTime.setUTCHours(hour24, parseInt(minute, 10), 0, 0);
-
-    // If day is same, but time has passed, schedule for next week
-    if (dayDifference === 0 && respawnTime.getTime() < nowInGmt8.getTime()) {
+    // If the selected day is today, but the time has already passed, schedule for next week
+    if (dayDifference === 0 && tempTargetDate < nowSGT) {
       dayDifference = 7;
-    } else if (dayDifference < 0) { // If target day is in the past this week
-        dayDifference += 7;
+    } 
+    // If the selected day is in the past for this week, schedule for next week
+    else if (dayDifference < 0) {
+      dayDifference += 7;
     }
     
-    const targetDate = new Date(nowInGmt8.getTime() + dayDifference * 24 * 60 * 60 * 1000);
-    targetDate.setUTCHours(hour24, parseInt(minute, 10), 0, 0);
+    // Create the final target date object
+    const targetDate = new Date(nowSGT);
+    // Set the date to the correct upcoming day
+    targetDate.setDate(targetDate.getDate() + dayDifference);
+    // Set the time for that day
+    targetDate.setHours(hour24, minuteInt, 0, 0);
 
     const docRef = doc(firestore, 'timers', editingBoss.id);
     setDocumentNonBlocking(docRef, { bossId: editingBoss.id, scheduledRespawnTime: targetDate }, { merge: true });

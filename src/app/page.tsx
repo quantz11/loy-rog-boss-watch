@@ -29,7 +29,7 @@ export default function HomePage() {
                   <CardDescription>Password-protected timers for ROG clan members.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button className="w-full" onClick={() => router.push('/login')}>
+                  <Button className="w-full" onClick={() => router.push('/login?redirect=/folkvang-boss-watch/')}>
                     Enter Folkvang Watch
                   </Button>
                 </CardContent>

@@ -38,7 +38,7 @@ function ServerBossCardSkeleton() {
 
 type ServerBossCardProps = {
   boss: ServerBoss;
-  onOpenSetTimeDialog: (boss: ServerBoss) => void;
+  onOpenSetTimeDialog: (boss: ServerBoss, currentRespawn: Date | null) => void;
 };
 
 export function ServerBossCard({ boss, onOpenSetTimeDialog }: ServerBossCardProps) {
@@ -131,7 +131,7 @@ export function ServerBossCard({ boss, onOpenSetTimeDialog }: ServerBossCardProp
       </CardContent>
       <CardFooter className="flex-col sm:flex-row gap-2">
         <Button
-          onClick={() => onOpenSetTimeDialog(boss)}
+          onClick={() => onOpenSetTimeDialog(boss, respawnTime)}
           className="w-full"
           variant="outline"
         >
