@@ -8,6 +8,7 @@ const repoName = 'loy-rog-boss-watch';
 const nextConfig: NextConfig = {
   /* config options here */
   output: 'export',
+  trailingSlash: true,
   // Set basePath only for production builds on GitHub Pages.
   basePath: isProd ? `/${repoName}` : '',
   // Set assetPrefix to ensure assets (CSS, JS, images) are loaded correctly.
