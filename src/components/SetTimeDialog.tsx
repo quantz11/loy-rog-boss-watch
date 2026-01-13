@@ -31,8 +31,8 @@ type SetTimeDialogProps = {
 };
 
 export function SetTimeDialog({ isOpen, onOpenChange, onSetTime, boss }: SetTimeDialogProps) {
-  const [hour, setHour] = useState("");
-  const [minute, setMinute] = useState("");
+  const [hour, setHour] = useState("12");
+  const [minute, setMinute] = useState("00");
   const [period, setPeriod] = useState("PM");
   const { toast } = useToast();
 

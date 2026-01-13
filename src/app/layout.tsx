@@ -1,3 +1,4 @@
+
 'use client';
 import { usePathname, useRouter } from 'next/navigation';
 import './globals.css';
@@ -7,34 +8,31 @@ import { useUser } from '@/firebase';
 import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
+const PUBLIC_PATHS = ['/', '/login'];
+
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const pathname = usePathname();
 
+  const isPublicPath = PUBLIC_PATHS.includes(pathname);
+  const isAuthenticated = user && !user.isAnonymous;
+
   useEffect(() => {
-    // If loading is finished and there's no authenticated (non-anonymous) user
-    if (!isUserLoading && (!user || user.isAnonymous)) {
-      // Redirect to login page if they are not already on it
-      if (pathname !== '/login') {
-        router.replace('/login');
-      }
+    if (isUserLoading) {
+      return; 
     }
-    
-    // If user is logged in and tries to access /login, redirect to home
-    if (!isUserLoading && user && !user.isAnonymous && pathname === '/login') {
-      router.replace('/');
+    if (!isPublicPath && !isAuthenticated) {
+      router.replace('/login');
     }
-  }, [user, isUserLoading, router, pathname]);
+  }, [isUserLoading, isAuthenticated, isPublicPath, pathname, router]);
 
-  // Determine if we should show the loading skeleton
-  const showSkeleton = isUserLoading || 
-                      (!isUserLoading && (!user || user.isAnonymous) && pathname !== '/login') ||
-                      (!isUserLoading && user && !user.isAnonymous && pathname === '/login');
-
-
-  if (showSkeleton) {
-    return (
+  if (isPublicPath) {
+    return <>{children}</>;
+  }
+  
+  if (isUserLoading) {
+     return (
       <div className="flex flex-col min-h-screen bg-background">
         <header className="bg-card/80 backdrop-blur-sm border-b sticky top-0 z-40">
           <div className="container mx-auto flex items-center justify-between p-4">
@@ -53,11 +51,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
            </div>
         </main>
       </div>
-    )
+    );
   }
-  
-  // If not showing skeleton, render the children (either the app or the login page)
-  return <>{children}</>;
+
+  if (isAuthenticated) {
+    return <>{children}</>;
+  }
+
+  return null;
 }
 
 
@@ -68,17 +69,17 @@ export default function RootLayout({
 }>) {
 
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      const isProd = process.env.NODE_ENV === 'production';
-      const repoName = 'loy-rog-boss-watch';
-      const swPath = isProd ? `/${repoName}/firebase-messaging-sw.js` : '/firebase-messaging-sw.js';
-
-      navigator.serviceWorker.register(swPath)
-        .then(function(registration) {
-          console.log('Service Worker registration successful with scope: ', registration.scope);
-        }).catch(function(err) {
-          console.log('Service Worker registration failed: ', err);
-        });
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+        const isProd = process.env.NODE_ENV === 'production';
+        const repoName = 'loy-rog-boss-watch';
+        const swUrl = isProd ? `/${repoName}/firebase-messaging-sw.js` : '/firebase-messaging-sw.js';
+        
+        navigator.serviceWorker.register(swUrl)
+            .then((registration) => {
+                console.log('Service Worker registration successful with scope: ', registration.scope);
+            }).catch((err) => {
+                console.error('Service Worker registration failed: ', err);
+            });
     }
   }, []);
 
@@ -88,15 +89,15 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link href="https://fonts.googleapis.com/css2?family=Inter&display=swap" rel="stylesheet" />
-        <title>ROG Folkvang Boss Watch</title>
+        <title>ROG Boss Watch</title>
       </head>
       <body className="font-body antialiased">
         <FirebaseClientProvider>
           <AuthGate>
             {children}
           </AuthGate>
-          <Toaster />
         </FirebaseClientProvider>
+        <Toaster />
       </body>
     </html>
   );

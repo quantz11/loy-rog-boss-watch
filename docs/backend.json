@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Boss": {
@@ -88,12 +89,59 @@
         "defeatedTime",
         "scheduledRespawnTime"
       ]
+    },
+    "FCMToken": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FCMToken",
+      "type": "object",
+      "description": "Represents a Firebase Cloud Messaging (FCM) device token.",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The user ID associated with the token."
+        },
+        "token": {
+          "type": "string",
+          "description": "The FCM device token."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The timestamp when the token was created.",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "token", "createdAt"]
+    },
+    "LoginAttempt": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "LoginAttempt",
+      "type": "object",
+      "description": "Represents a logged failed login attempt after multiple failures.",
+      "properties": {
+        "userAgent": {
+          "type": "string",
+          "description": "The user agent string of the client that failed to log in."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "The timestamp when the multiple failures occurred.",
+          "format": "date-time"
+        },
+         "emailAttempted": {
+          "type": "string",
+          "description": "The email address that was used for the failed login attempt."
+        },
+        "language": {
+            "type": "string",
+            "description": "The language setting of the browser used for the failed login attempt."
+        }
+      },
+      "required": ["userAgent", "timestamp", "emailAttempted", "language"]
     }
   },
   "auth": {
     "providers": [
-      "password",
-      "anonymous"
+      "password"
     ]
   },
   "firestore": {
@@ -145,8 +193,40 @@
             }
           ]
         }
+      },
+      {
+        "path": "/fcmTokens/{tokenId}",
+        "definition": {
+            "entityName": "FCMToken",
+            "schema": {
+                "$ref": "#/backend/entities/FCMToken"
+            },
+            "description": "Stores FCM device tokens for push notifications. The document ID is the token itself to prevent duplicates.",
+            "params": [
+                {
+                    "name": "tokenId",
+                    "description": "The FCM token string."
+                }
+            ]
+        }
+      },
+       {
+        "path": "/login-attempts/{attemptId}",
+        "definition": {
+            "entityName": "LoginAttempt",
+            "schema": {
+                "$ref": "#/backend/entities/LoginAttempt"
+            },
+            "description": "Stores information about multiple failed login attempts for security monitoring.",
+            "params": [
+                {
+                    "name": "attemptId",
+                    "description": "The unique identifier for the logged attempt."
+                }
+            ]
+        }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to efficiently manage and query boss timers based on floors and server types. It uses structural segregation by separating different entities into their own collections. Authorization Independence is not applicable since there are no user roles or permissions required. Since the application uses anonymous authentication, access to read and write timers will be open, but could be restricted in the security rules to prevent abuse if needed. The `Floors` collection stores floor information. `Bosses` stores boss information and their relationship to floors via the `floorId` field. `Timers` stores timer information and relates back to the boss via `bossId`. The structure is designed to make it easy to query timers based on floors and server types using Firestore queries."
+    "reasoning": "The Firestore data structure is designed to efficiently manage and query boss timers based on floors and server types. It uses structural segregation by separating different entities into their own collections. Authorization Independence is not applicable since there are no user roles or permissions required. Since the application uses anonymous authentication, access to read and write timers will be open, but could be restricted in the security rules to prevent abuse if needed. The `Floors` collection stores floor information. `Bosses` stores boss information and their relationship to floors via the `floorId` field. `Timers` stores timer information and relates back to the boss via `bossId`. The `fcmTokens` collection stores device tokens for sending push notifications. The `login-attempts` collection is write-only for clients to log suspicious activity."
   }
 }
