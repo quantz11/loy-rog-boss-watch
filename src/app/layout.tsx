@@ -19,24 +19,25 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const isAuthenticated = user && !user.isAnonymous;
 
   useEffect(() => {
-    // This effect handles redirection for protected routes.
-    // It should NOT interfere with public routes.
+    // This effect handles redirection ONLY for protected routes.
+    // It does not run on public paths.
     if (isUserLoading || isPublicPath) {
       return; 
     }
     
+    // If we are on a protected path and not authenticated, redirect to login.
     if (!isAuthenticated) {
       router.replace('/login/');
     }
-  }, [isUserLoading, isAuthenticated, isPublicPath, router]);
+  }, [isUserLoading, isAuthenticated, isPublicPath, pathname, router]);
 
 
-  // Immediately render public pages.
+  // Rule 1: If the path is public, always render the page.
   if (isPublicPath) {
     return <>{children}</>;
   }
 
-  // For protected pages, show a skeleton loader while checking auth.
+  // Rule 2: If the path is protected and we are still loading auth state, show a skeleton.
   if (isUserLoading) {
      return (
       <div className="flex flex-col min-h-screen bg-background">
@@ -60,12 +61,13 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // If authenticated, show the protected page.
+  // Rule 3: If the path is protected and the user is authenticated, render the page.
   if (isAuthenticated) {
     return <>{children}</>;
   }
 
-  // If not authenticated and on a protected page, render nothing while redirecting.
+  // Rule 4: If the path is protected and user is not authenticated, render nothing
+  // while the useEffect redirects them. This prevents flashing the protected page.
   return null;
 }
 
@@ -77,24 +79,17 @@ export default function RootLayout({
 }>) {
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-        navigator.serviceWorker.ready.then(registration => {
-            console.log('Service Worker is active and ready:', registration);
-            
-            const isProd = process.env.NODE_ENV === 'production';
-            const repoName = 'loy-rog-boss-watch';
-            const swUrl = isProd ? `/${repoName}/firebase-messaging-sw.js` : '/firebase-messaging-sw.js';
-        
-            if (registration.scope.includes(repoName) || !isProd) {
-                console.log('Service worker scope is correct.');
-            } else {
-                 console.warn('Service worker scope might be incorrect for production. Re-registering.');
-                 navigator.serviceWorker.register(swUrl)
-                    .then(reg => console.log('Re-registration successful:', reg.scope))
-                    .catch(err => console.error('Re-registration failed:', err));
-            }
-        }).catch(err => {
-            console.error('Service worker not ready:', err);
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker) {
+      const isProd = process.env.NODE_ENV === 'production';
+      const repoName = 'loy-rog-boss-watch';
+      const swUrl = isProd ? `/${repoName}/firebase-messaging-sw.js` : '/firebase-messaging-sw.js';
+
+      navigator.serviceWorker.register(swUrl)
+        .then(registration => {
+          console.log('Service Worker registered with scope:', registration.scope);
+        })
+        .catch(err => {
+          console.error('Service Worker registration failed:', err);
         });
     }
   }, []);

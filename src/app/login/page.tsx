@@ -110,11 +110,13 @@ export default function LoginPage() {
   };
 
   useEffect(() => {
+    // If the user is already authenticated, redirect them away from the login page.
     if (!isUserLoading && user && !user.isAnonymous) {
       router.replace('/folkvang-boss-watch/');
     }
   }, [user, isUserLoading, router]);
 
+  // While checking user auth, or if user is logged in (and about to be redirected), show a loader.
   if (isUserLoading || (user && !user.isAnonymous)) {
     return (
        <div className="flex items-center justify-center min-h-screen bg-background">
@@ -123,6 +125,7 @@ export default function LoginPage() {
     );
   }
 
+  // If we are not loading and the user is anonymous or null, show the login form.
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
       <Card className="w-full max-w-sm">
