@@ -8,7 +8,7 @@ import { useUser } from '@/firebase';
 import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const PUBLIC_PATHS = ['/', '/login'];
+const PUBLIC_PATHS = ['/', '/login/'];
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
@@ -19,32 +19,26 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const isAuthenticated = user && !user.isAnonymous;
 
   useEffect(() => {
-    // This effect handles two scenarios after loading is complete.
-    if (isUserLoading) {
-      return; // Do nothing while loading.
+    // This effect handles redirection for protected routes.
+    // It should NOT interfere with public routes.
+    if (isUserLoading || isPublicPath) {
+      return; 
     }
-
-    // 1. If the user is on a protected page but is not authenticated, redirect to login.
-    if (!isPublicPath && !isAuthenticated) {
-      router.replace('/login');
+    
+    if (!isAuthenticated) {
+      router.replace('/login/');
     }
-
-    // 2. If the user is authenticated and tries to visit the login page, redirect them away.
-    if (isAuthenticated && pathname === '/login') {
-      router.replace('/folkvang-boss-watch');
-    }
-  }, [isUserLoading, isAuthenticated, isPublicPath, pathname, router]);
+  }, [isUserLoading, isAuthenticated, isPublicPath, router]);
 
 
-  // Immediately render public paths.
+  // Immediately render public pages.
   if (isPublicPath) {
     return <>{children}</>;
   }
 
-  // For protected paths:
-  // If still loading, show a skeleton UI.
+  // For protected pages, show a skeleton loader while checking auth.
   if (isUserLoading) {
-    return (
+     return (
       <div className="flex flex-col min-h-screen bg-background">
         <header className="bg-card/80 backdrop-blur-sm border-b sticky top-0 z-40">
           <div className="container mx-auto flex items-center justify-between p-4">
@@ -66,13 +60,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // If loading is finished and user is authenticated, render the protected content.
+  // If authenticated, show the protected page.
   if (isAuthenticated) {
     return <>{children}</>;
   }
-  
-  // If loading is finished and user is NOT authenticated on a protected path,
-  // render nothing. The useEffect has already triggered the redirect.
+
+  // If not authenticated and on a protected page, render nothing while redirecting.
   return null;
 }
 
@@ -84,16 +77,24 @@ export default function RootLayout({
 }>) {
 
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      const isProd = process.env.NODE_ENV === 'production';
-      const repoName = 'loy-rog-boss-watch';
-      const swPath = isProd ? `/${repoName}/firebase-messaging-sw.js` : '/firebase-messaging-sw.js';
-
-      navigator.serviceWorker.register(swPath)
-        .then(function(registration) {
-          console.log('Service Worker registration successful with scope: ', registration.scope);
-        }).catch(function(err) {
-          console.log('Service Worker registration failed: ', err);
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.ready.then(registration => {
+            console.log('Service Worker is active and ready:', registration);
+            
+            const isProd = process.env.NODE_ENV === 'production';
+            const repoName = 'loy-rog-boss-watch';
+            const swUrl = isProd ? `/${repoName}/firebase-messaging-sw.js` : '/firebase-messaging-sw.js';
+        
+            if (registration.scope.includes(repoName) || !isProd) {
+                console.log('Service worker scope is correct.');
+            } else {
+                 console.warn('Service worker scope might be incorrect for production. Re-registering.');
+                 navigator.serviceWorker.register(swUrl)
+                    .then(reg => console.log('Re-registration successful:', reg.scope))
+                    .catch(err => console.error('Re-registration failed:', err));
+            }
+        }).catch(err => {
+            console.error('Service worker not ready:', err);
         });
     }
   }, []);

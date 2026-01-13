@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
   // Set basePath only for production builds on GitHub Pages.
   basePath: isProd ? `/${repoName}` : '',
   // Set assetPrefix to ensure assets (CSS, JS, images) are loaded correctly.
-  assetPrefix: isProd ? `/${repoName}/` : '',
+  assetPrefix: isProd ? `/${repoName}/` : '/',
   typescript: {
     ignoreBuildErrors: true,
   },

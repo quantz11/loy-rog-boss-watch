@@ -37,14 +37,6 @@ export default function LoginPage() {
   const { toast } = useToast();
   const router = useRouter();
 
-  // State to track if component is mounted on the client
-  const [isClient, setIsClient] = useState(false);
-
-  // Set isClient to true after component mounts
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -57,7 +49,7 @@ export default function LoginPage() {
     try {
       await signInWithEmailAndPassword(auth, AUTH_EMAIL, password);
       setLoginAttempts(0); // Reset on success
-      router.replace('/folkvang-boss-watch'); // Redirect on success
+      router.replace('/folkvang-boss-watch/'); // Redirect on success
     } catch (error) {
       const authError = error as AuthError;
       
@@ -119,7 +111,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!isUserLoading && user && !user.isAnonymous) {
-      router.replace('/folkvang-boss-watch');
+      router.replace('/folkvang-boss-watch/');
     }
   }, [user, isUserLoading, router]);
 
@@ -139,41 +131,35 @@ export default function LoginPage() {
           <CardTitle className="text-2xl font-headline">ROG Boss Watch</CardTitle>
           <CardDescription>Enter the clan password to continue</CardDescription>
         </CardHeader>
-        {isClient ? (
-          <form onSubmit={handleLogin}>
-            <CardContent>
-              <div className="grid w-full items-center gap-4">
-                <div className="flex flex-col space-y-1.5">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    disabled={isLoading || isCoolingDown}
-                  />
-                </div>
+        <form onSubmit={handleLogin}>
+          <CardContent>
+            <div className="grid w-full items-center gap-4">
+              <div className="flex flex-col space-y-1.5">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={isLoading || isCoolingDown}
+                />
               </div>
-            </CardContent>
-            <CardFooter className="flex-col gap-2">
-              <Button type="submit" className="w-full" disabled={isLoading || isCoolingDown}>
-                {(isLoading || isCoolingDown) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isLoading ? 'Signing In...' : isCoolingDown ? `On Cooldown...` : 'Enter'}
+            </div>
+          </CardContent>
+          <CardFooter className="flex-col gap-2">
+            <Button type="submit" className="w-full" disabled={isLoading || isCoolingDown}>
+              {(isLoading || isCoolingDown) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isLoading ? 'Signing In...' : isCoolingDown ? `On Cooldown...` : 'Enter'}
+            </Button>
+             <Link href="/" className="w-full">
+              <Button variant="outline" className="w-full">
+                Back to Main
               </Button>
-               <Link href="/" className="w-full">
-                <Button variant="outline" className="w-full">
-                  Back to Main
-                </Button>
-              </Link>
-            </CardFooter>
-          </form>
-        ) : (
-          <div className="p-6 pt-0">
-             <div className="h-10 w-full rounded-md bg-muted animate-pulse" />
-          </div>
-        )}
+            </Link>
+          </CardFooter>
+        </form>
       </Card>
     </div>
   );

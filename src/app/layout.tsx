@@ -8,7 +8,7 @@ import { useUser } from '@/firebase';
 import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const PUBLIC_PATHS = ['/', '/login'];
+const PUBLIC_PATHS = ['/', '/login/'];
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { user, isUserLoading } = useUser();
@@ -19,18 +19,24 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const isAuthenticated = user && !user.isAnonymous;
 
   useEffect(() => {
-    if (isUserLoading) {
+    // This effect handles redirection for protected routes.
+    // It should NOT interfere with public routes.
+    if (isUserLoading || isPublicPath) {
       return; 
     }
-    if (!isPublicPath && !isAuthenticated) {
-      router.replace('/login');
+    
+    if (!isAuthenticated) {
+      router.replace('/login/');
     }
-  }, [isUserLoading, isAuthenticated, isPublicPath, pathname, router]);
+  }, [isUserLoading, isAuthenticated, isPublicPath, router]);
 
+
+  // Immediately render public pages.
   if (isPublicPath) {
     return <>{children}</>;
   }
-  
+
+  // For protected pages, show a skeleton loader while checking auth.
   if (isUserLoading) {
      return (
       <div className="flex flex-col min-h-screen bg-background">
@@ -54,10 +60,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // If authenticated, show the protected page.
   if (isAuthenticated) {
     return <>{children}</>;
   }
 
+  // If not authenticated and on a protected page, render nothing while redirecting.
   return null;
 }
 
@@ -70,16 +78,24 @@ export default function RootLayout({
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-        const isProd = process.env.NODE_ENV === 'production';
-        const repoName = 'loy-rog-boss-watch';
-        const swUrl = isProd ? `/${repoName}/firebase-messaging-sw.js` : '/firebase-messaging-sw.js';
+        navigator.serviceWorker.ready.then(registration => {
+            console.log('Service Worker is active and ready:', registration);
+            
+            const isProd = process.env.NODE_ENV === 'production';
+            const repoName = 'loy-rog-boss-watch';
+            const swUrl = isProd ? `/${repoName}/firebase-messaging-sw.js` : '/firebase-messaging-sw.js';
         
-        navigator.serviceWorker.register(swUrl)
-            .then((registration) => {
-                console.log('Service Worker registration successful with scope: ', registration.scope);
-            }).catch((err) => {
-                console.error('Service Worker registration failed: ', err);
-            });
+            if (registration.scope.includes(repoName) || !isProd) {
+                console.log('Service worker scope is correct.');
+            } else {
+                 console.warn('Service worker scope might be incorrect for production. Re-registering.');
+                 navigator.serviceWorker.register(swUrl)
+                    .then(reg => console.log('Re-registration successful:', reg.scope))
+                    .catch(err => console.error('Re-registration failed:', err));
+            }
+        }).catch(err => {
+            console.error('Service worker not ready:', err);
+        });
     }
   }, []);
 
