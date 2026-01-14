@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Gem, Loader2 } from 'lucide-react';
 import { useUser, useAuth, useFirestore } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { signInWithEmailAndPassword, AuthError } from 'firebase/auth';
 import { collection, addDoc } from 'firebase/firestore';
 import Link from 'next/link';
@@ -26,7 +26,7 @@ const AUTH_EMAIL = 'user@folkvang.watch';
 const MAX_LOGIN_ATTEMPTS = 3;
 const COOLDOWN_SECONDS = 10;
 
-export default function LoginPage() {
+function LoginPageContent() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isCoolingDown, setIsCoolingDown] = useState(false);
@@ -36,6 +36,8 @@ export default function LoginPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectPath = searchParams.get('redirect');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +51,7 @@ export default function LoginPage() {
     try {
       await signInWithEmailAndPassword(auth, AUTH_EMAIL, password);
       setLoginAttempts(0); // Reset on success
-      router.replace('/folkvang-boss-watch/'); // Redirect on success
+      router.replace(redirectPath || '/folkvang-boss-watch/'); // Redirect on success
     } catch (error) {
       const authError = error as AuthError;
       
@@ -112,9 +114,9 @@ export default function LoginPage() {
   useEffect(() => {
     // If the user is already authenticated, redirect them away from the login page.
     if (!isUserLoading && user && !user.isAnonymous) {
-      router.replace('/folkvang-boss-watch/');
+      router.replace(redirectPath || '/folkvang-boss-watch/');
     }
-  }, [user, isUserLoading, router]);
+  }, [user, isUserLoading, router, redirectPath]);
 
   // While checking user auth, or if user is logged in (and about to be redirected), show a loader.
   if (isUserLoading || (user && !user.isAnonymous)) {
@@ -166,4 +168,13 @@ export default function LoginPage() {
       </Card>
     </div>
   );
+}
+
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen bg-background"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>}>
+      <LoginPageContent />
+    </Suspense>
+  )
 }
