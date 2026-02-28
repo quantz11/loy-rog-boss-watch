@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -22,12 +22,13 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import type { Boss } from "@/lib/bosses";
+import type { FieldBoss } from "@/lib/field-bosses";
 
 type SetTimeDialogProps = {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   onSetTime: (date: Date) => void;
-  boss: Boss;
+  boss: Boss | FieldBoss;
 };
 
 export function SetTimeDialog({ isOpen, onOpenChange, onSetTime, boss }: SetTimeDialogProps) {
@@ -36,7 +37,19 @@ export function SetTimeDialog({ isOpen, onOpenChange, onSetTime, boss }: SetTime
   const [period, setPeriod] = useState("PM");
   const { toast } = useToast();
 
-  const bossName = `[${boss.type.charAt(0).toUpperCase() + boss.type.slice(1)}] ${boss.name} - ${boss.floor}F`;
+  const bossName = useMemo(() => {
+    if (!boss) return "";
+    
+    // Check if it's a FieldBoss (has zone property)
+    if ("zone" in boss) {
+      return `[Field] ${boss.name} - ${boss.zone}`;
+    }
+    
+    // Otherwise handle as a standard Folkvang Boss
+    const b = boss as Boss;
+    const typeLabel = b.type ? b.type.charAt(0).toUpperCase() + b.type.slice(1) : "Normal";
+    return `[${typeLabel}] ${b.name} - ${b.floor}F`;
+  }, [boss]);
 
   useEffect(() => {
     if (isOpen) {
@@ -51,12 +64,14 @@ export function SetTimeDialog({ isOpen, onOpenChange, onSetTime, boss }: SetTime
       });
 
       // E.g., "8:30 PM"
-      const [time, periodStr] = timeString.split(' ');
-      const [hourStr, minuteStr] = time.split(':');
-
-      setHour(hourStr);
-      setMinute(minuteStr);
-      setPeriod(periodStr);
+      const parts = timeString.split(' ');
+      if (parts.length === 2) {
+        const [time, periodStr] = parts;
+        const [hourStr, minuteStr] = time.split(':');
+        setHour(hourStr);
+        setMinute(minuteStr);
+        setPeriod(periodStr);
+      }
     }
   }, [isOpen]);
 
@@ -87,7 +102,6 @@ export function SetTimeDialog({ isOpen, onOpenChange, onSetTime, boss }: SetTime
     nowInGmt8.setHours(hour24, m, 0, 0);
 
     // Create a final date object from the GMT+8 parts. 
-    // This will be interpreted by the browser in its local timezone, so we need to account for the offset.
     const year = nowInGmt8.getFullYear();
     const month = nowInGmt8.getMonth();
     const day = nowInGmt8.getDate();
@@ -101,7 +115,7 @@ export function SetTimeDialog({ isOpen, onOpenChange, onSetTime, boss }: SetTime
     }
     
     onSetTime(finalDate);
-    onOpenChange(false); // Close the dialog on success
+    onOpenChange(false);
   };
   
   const handleCancel = () => {

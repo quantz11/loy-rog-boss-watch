@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Gem, Loader2 } from 'lucide-react';
+import { Gem, Loader2, Lock } from 'lucide-react';
 import { useUser, useAuth, useFirestore } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -21,8 +21,9 @@ import { signInWithEmailAndPassword, AuthError } from 'firebase/auth';
 import { collection, addDoc } from 'firebase/firestore';
 import Link from 'next/link';
 
-// Hardcoded email for single-password authentication
+// Credentials for the shared clan account
 const AUTH_EMAIL = 'user@folkvang.watch';
+const CLAN_PASSWORD = 'go2Quantz4ROG';
 const MAX_LOGIN_ATTEMPTS = 3;
 const COOLDOWN_SECONDS = 10;
 
@@ -49,9 +50,15 @@ function LoginPageContent() {
     setIsLoading(true);
 
     try {
-      await signInWithEmailAndPassword(auth, AUTH_EMAIL, password);
-      setLoginAttempts(0); // Reset on success
-      router.replace(redirectPath || '/folkvang-boss-watch/'); // Redirect on success
+      // First check if the input matches our clan password
+      if (password !== CLAN_PASSWORD) {
+        throw { code: 'auth/invalid-credential' } as AuthError;
+      }
+
+      // If matches, sign in with the internal shared account
+      await signInWithEmailAndPassword(auth, AUTH_EMAIL, CLAN_PASSWORD);
+      setLoginAttempts(0);
+      router.replace(redirectPath || '/folkvang-boss-watch/');
     } catch (error) {
       const authError = error as AuthError;
       
@@ -72,14 +79,14 @@ function LoginPageContent() {
         toast({
           variant: 'destructive',
           title: 'Identity Verification Required',
-          description: `To prove you are a clan member, please solve the following: lim(x→∞) Σ(n=1 to x) ∫(0 to π) sin(nθ)/n dθ. The numerical result is your password. (Try again in ${COOLDOWN_SECONDS} seconds)`,
+          description: `Unauthorized access detected. Hint: Check the clan recruitment message. (Try again in ${COOLDOWN_SECONDS} seconds)`,
           duration: 10000,
         });
 
         setIsCoolingDown(true);
         setTimeout(() => {
           setIsCoolingDown(false);
-          setLoginAttempts(0); // Reset attempts after cooldown
+          setLoginAttempts(0);
         }, COOLDOWN_SECONDS * 1000);
       };
 
@@ -94,15 +101,14 @@ function LoginPageContent() {
         } else {
           toast({
               variant: 'destructive',
-              title: 'Login Failed',
-              description: 'The password you entered is incorrect. Please try again.',
+              title: 'Access Denied',
+              description: 'Incorrect clan password. Please contact Quantz for the key.',
           });
         }
       } else {
-        // Handle other unexpected Firebase auth errors
         toast({
           variant: 'destructive',
-          title: 'An Unexpected Error Occurred',
+          title: 'System Error',
           description: authError.message,
         });
       }
@@ -112,13 +118,11 @@ function LoginPageContent() {
   };
 
   useEffect(() => {
-    // If the user is already authenticated, redirect them away from the login page.
     if (!isUserLoading && user && !user.isAnonymous) {
       router.replace(redirectPath || '/folkvang-boss-watch/');
     }
   }, [user, isUserLoading, router, redirectPath]);
 
-  // While checking user auth, or if user is logged in (and about to be redirected), show a loader.
   if (isUserLoading || (user && !user.isAnonymous)) {
     return (
        <div className="flex items-center justify-center min-h-screen bg-background">
@@ -127,24 +131,28 @@ function LoginPageContent() {
     );
   }
 
-  // If we are not loading and the user is anonymous or null, show the login form.
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <Gem className="mx-auto h-12 w-12 text-primary mb-4" />
-          <CardTitle className="text-2xl font-headline">ROG Boss Watch</CardTitle>
-          <CardDescription>Enter the clan password to continue</CardDescription>
+    <div className="flex items-center justify-center min-h-screen bg-background p-4">
+      <Card className="w-full max-w-md shadow-2xl border-primary/20 bg-card/50 backdrop-blur-md">
+        <CardHeader className="text-center space-y-4 pt-10">
+          <div className="mx-auto w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center">
+            <Lock className="h-10 w-10 text-primary" />
+          </div>
+          <div>
+            <CardTitle className="text-3xl font-headline font-bold">Clan Access</CardTitle>
+            <CardDescription className="text-base mt-2">Enter the key to unlock the ROG Watch system</CardDescription>
+          </div>
         </CardHeader>
         <form onSubmit={handleLogin}>
-          <CardContent>
+          <CardContent className="px-8 py-6">
             <div className="grid w-full items-center gap-4">
-              <div className="flex flex-col space-y-1.5">
+              <div className="flex flex-col space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Enter your password"
+                  placeholder="Enter clan password"
+                  className="h-12 text-lg"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -153,14 +161,14 @@ function LoginPageContent() {
               </div>
             </div>
           </CardContent>
-          <CardFooter className="flex-col gap-2">
-            <Button type="submit" className="w-full" disabled={isLoading || isCoolingDown}>
-              {(isLoading || isCoolingDown) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isLoading ? 'Signing In...' : isCoolingDown ? `On Cooldown...` : 'Enter'}
+          <CardFooter className="flex-col gap-3 px-8 pb-10">
+            <Button type="submit" className="w-full h-14 text-lg font-bold rounded-xl" disabled={isLoading || isCoolingDown}>
+              {(isLoading || isCoolingDown) && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+              {isLoading ? 'Decrypting...' : isCoolingDown ? `Locked` : 'Unlock System'}
             </Button>
              <Link href="/" className="w-full">
-              <Button variant="outline" className="w-full">
-                Back to Main
+              <Button variant="ghost" className="w-full h-10">
+                Back to Home
               </Button>
             </Link>
           </CardFooter>
@@ -169,7 +177,6 @@ function LoginPageContent() {
     </div>
   );
 }
-
 
 export default function LoginPage() {
   return (
