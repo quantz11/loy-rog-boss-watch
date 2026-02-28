@@ -8,6 +8,7 @@ import { useUser } from '@/firebase';
 import { useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
+// Note: usePathname() returns the path WITHOUT the basePath.
 const PUBLIC_PATHS = ['/', '/login/'];
 
 function AuthGate({ children }: { children: React.ReactNode }) {
@@ -15,29 +16,33 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const isPublicPath = PUBLIC_PATHS.includes(pathname);
+  // Standardize pathname to ensure trailing slash matching works correctly
+  const currentPath = pathname?.endsWith('/') ? pathname : `${pathname}/`;
+  const isPublicPath = PUBLIC_PATHS.some(path => {
+    if (path === '/') return currentPath === '/';
+    return currentPath.startsWith(path);
+  });
+
   const isAuthenticated = user && !user.isAnonymous;
 
   useEffect(() => {
-    // This effect handles redirection ONLY for protected routes.
-    // It does not run on public paths.
     if (isUserLoading || isPublicPath) {
       return; 
     }
     
-    // If we are on a protected path and not authenticated, redirect to login.
     if (!isAuthenticated) {
+      // router.replace is relative to basePath automatically in Next.js
       router.replace('/login/');
     }
-  }, [isUserLoading, isAuthenticated, isPublicPath, pathname, router]);
+  }, [isUserLoading, isAuthenticated, isPublicPath, currentPath, router]);
 
 
-  // Rule 1: If the path is public, always render the page.
+  // Rule 1: Public paths are always rendered immediately to prevent blank screens
   if (isPublicPath) {
     return <>{children}</>;
   }
 
-  // Rule 2: If the path is protected and we are still loading auth state, show a skeleton.
+  // Rule 2: Protected paths show loading state
   if (isUserLoading) {
      return (
       <div className="flex flex-col min-h-screen bg-background">
@@ -61,13 +66,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Rule 3: If the path is protected and the user is authenticated, render the page.
+  // Rule 3: Authenticated users see the protected content
   if (isAuthenticated) {
     return <>{children}</>;
   }
 
-  // Rule 4: If the path is protected and user is not authenticated, render nothing
-  // while the useEffect redirects them. This prevents flashing the protected page.
+  // Rule 4: Otherwise, return nothing while the useEffect handles redirection
   return null;
 }
 

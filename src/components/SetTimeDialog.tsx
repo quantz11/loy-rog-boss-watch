@@ -42,7 +42,8 @@ export function SetTimeDialog({ isOpen, onOpenChange, onSetTime, boss }: SetTime
     
     // Check if it's a FieldBoss (has zone property)
     if ("zone" in boss) {
-      return `[Field] ${boss.name} - ${boss.zone}`;
+      const fb = boss as FieldBoss;
+      return `[Field CH ${fb.channel}] ${fb.name} - ${fb.zone}`;
     }
     
     // Otherwise handle as a standard Folkvang Boss

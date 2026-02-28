@@ -15,7 +15,7 @@ export default function HomePage() {
           ROG Boss Watch
         </h1>
         <p className="text-xl text-muted-foreground font-medium max-w-2xl mx-auto">
-          The ultimate utility for tracking world bosses and unique monsters in Legend of Ymir.
+          The ultimate utility for tracking world bosses and elite guardians in Legend of Ymir.
         </p>
       </header>
       
@@ -60,7 +60,7 @@ export default function HomePage() {
                   Field Boss Watch
                 </CardTitle>
                 <CardDescription className="text-lg text-muted-foreground/80 leading-relaxed">
-                  World map unique bosses. Tracking and respawn alerts.
+                  Territory guardians and world map unique bosses. Tracking and respawn alerts.
                 </CardDescription>
               </div>
             </CardHeader>

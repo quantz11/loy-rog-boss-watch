@@ -6,12 +6,13 @@ export type FieldBoss = {
   id: string;
   name: string;
   zone: string;
+  channel: number;
   respawnHours: number;
   windowHours: number; // For the "countdown to max spawn"
   Icon: LucideIcon;
 };
 
-export const fieldBosses: FieldBoss[] = [
+const baseFieldBosses = [
   // Canyon of the world tree Depth
   { id: 'field-tree-depth-pulverizer', name: 'Lv. 56 Trembling Jotunn Pulverizer', zone: 'Canyon of the world tree Depth', respawnHours: 0.5, windowHours: 0.5, Icon: Mountain },
   { id: 'field-tree-depth-lindwurm', name: 'Lv. 58 Golden Lindwurm Variant', zone: 'Canyon of the world tree Depth', respawnHours: 0.5, windowHours: 0.5, Icon: Flame },
@@ -34,3 +35,8 @@ export const fieldBosses: FieldBoss[] = [
   { id: 'field-nidavellir-jotunn-ground', name: 'Lv. 67 Darkening Ground Jotunn Captain', zone: 'Canyon of Nidavellir', respawnHours: 0.5, windowHours: 0.5, Icon: Mountain },
   { id: 'field-nidavellir-jotunn-frost', name: 'Lv. 69 Darkening Frost Jotunn Captain', zone: 'Canyon of Nidavellir', respawnHours: 0.5, windowHours: 0.5, Icon: Snowflake },
 ];
+
+export const fieldBosses: FieldBoss[] = baseFieldBosses.flatMap(boss => [
+  { ...boss, id: `${boss.id}-ch1`, channel: 1 },
+  { ...boss, id: `${boss.id}-ch2`, channel: 2 },
+]);

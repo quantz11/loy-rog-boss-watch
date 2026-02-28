@@ -83,7 +83,7 @@ export function FieldBossTimers() {
       
       toast({
         title: 'Timer Updated!',
-        description: `${editingBoss.name} timer was set manually.`,
+        description: `${editingBoss.name} (CH ${editingBoss.channel}) timer was set manually.`,
       });
     }
     handleCloseSetTimeDialog();
@@ -108,7 +108,7 @@ export function FieldBossTimers() {
                   <h2 className="text-xl font-headline font-bold text-primary flex items-center gap-2">
                     {zone}
                     <span className="text-xs font-normal text-muted-foreground bg-primary/5 px-2 py-0.5 rounded-full">
-                      {zoneBosses.length} Bosses
+                      {zoneBosses.length / 2} Unique Bosses
                     </span>
                   </h2>
                 </AccordionTrigger>
@@ -131,15 +131,43 @@ export function FieldBossTimers() {
                 </Button>
               </div>
               <AccordionContent className="bg-card/20 p-6 rounded-b-xl border border-primary/10 border-t-0">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {zoneBosses.map((boss) => (
-                    <FieldBossCard
-                      key={boss.id}
-                      boss={boss}
-                      onOpenSetTimeDialog={handleOpenSetTimeDialog}
-                    />
-                  ))}
-                </div>
+                <Accordion type="multiple" defaultValue={[`zone-${zone}-ch1`, `zone-${zone}-ch2`]} className="space-y-4">
+                   {/* Channel 1 */}
+                   <AccordionItem value={`zone-${zone}-ch1`} className="border-none bg-background/30 rounded-lg overflow-hidden">
+                      <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-background/40">
+                         <span className="font-bold text-accent text-sm">CHANNEL 1</span>
+                      </AccordionTrigger>
+                      <AccordionContent className="p-4 pt-0">
+                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pt-4">
+                            {zoneBosses.filter(b => b.channel === 1).map((boss) => (
+                              <FieldBossCard
+                                key={boss.id}
+                                boss={boss}
+                                onOpenSetTimeDialog={handleOpenSetTimeDialog}
+                              />
+                            ))}
+                         </div>
+                      </AccordionContent>
+                   </AccordionItem>
+
+                   {/* Channel 2 */}
+                   <AccordionItem value={`zone-${zone}-ch2`} className="border-none bg-background/30 rounded-lg overflow-hidden">
+                      <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-background/40">
+                         <span className="font-bold text-accent text-sm">CHANNEL 2</span>
+                      </AccordionTrigger>
+                      <AccordionContent className="p-4 pt-0">
+                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pt-4">
+                            {zoneBosses.filter(b => b.channel === 2).map((boss) => (
+                              <FieldBossCard
+                                key={boss.id}
+                                boss={boss}
+                                onOpenSetTimeDialog={handleOpenSetTimeDialog}
+                              />
+                            ))}
+                         </div>
+                      </AccordionContent>
+                   </AccordionItem>
+                </Accordion>
               </AccordionContent>
             </AccordionItem>
           );

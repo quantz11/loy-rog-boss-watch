@@ -82,9 +82,9 @@ export function FieldBossCard({ boss, onOpenSetTimeDialog }: FieldBossCardProps)
     
     toast({
       title: 'Timer Started!',
-      description: `${boss.name} will respawn in approx. 30-60 minutes.`,
+      description: `${boss.name} (CH ${boss.channel}) will respawn in approx. 30-60 minutes.`,
     });
-  },[firestore, boss.id, boss.name, toast]);
+  },[firestore, boss.id, boss.name, boss.channel, toast]);
 
   if (isLoading) {
     return <FieldBossCardSkeleton />;
@@ -105,9 +105,14 @@ export function FieldBossCard({ boss, onOpenSetTimeDialog }: FieldBossCardProps)
           <CardTitle className="font-headline text-lg leading-tight">
             {boss.name}
           </CardTitle>
-          <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-            <MapPin className="h-3 w-3" />
-            <span>{boss.zone}</span>
+          <div className="flex items-center gap-2 mt-1">
+             <div className="flex items-center gap-1 text-[10px] uppercase font-bold text-accent bg-accent/10 px-1.5 py-0.5 rounded border border-accent/20">
+                CH {boss.channel}
+             </div>
+             <div className="flex items-center gap-1 text-xs text-muted-foreground">
+               <MapPin className="h-3 w-3" />
+               <span className="truncate max-w-[120px]">{boss.zone}</span>
+             </div>
           </div>
         </div>
       </CardHeader>
